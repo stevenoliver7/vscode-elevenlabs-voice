@@ -9,6 +9,10 @@ let audioCapture: AudioCapture | null = null;
 let isRecording = false;
 let statusBarItem: vscode.StatusBarItem;
 
+// Track partial transcription for inline replacement
+let lastPartialRange: vscode.Range | null = null;
+let lastPartialText: string = '';
+
 export function activate(context: vscode.ExtensionContext) {
     console.log('ElevenLabs Voice extension is now active');
 
@@ -101,10 +105,21 @@ async function startRecording() {
     }
 
     try {
-        // Start ElevenLabs connection
-        await elevenLabsService.startTranscription(async (text: string) => {
-            await handleTranscription(text);
-        });
+        // Reset partial tracking
+        lastPartialRange = null;
+        lastPartialText = '';
+
+        // Start ElevenLabs connection with two callbacks
+        await elevenLabsService.startTranscription(
+            // onPartial — replace previous partial inline
+            async (text: string) => {
+                await handlePartialTranscription(text);
+            },
+            // onFinal — commit text permanently
+            async (text: string) => {
+                await handleFinalTranscription(text);
+            }
+        );
 
         // Start audio capture
         await audioCapture.startRecording();
@@ -141,7 +156,7 @@ async function stopRecording() {
         await vscode.commands.executeCommand('setContext', 'elevenlabsVoice.recording', false);
 
         if (finalText) {
-            await handleTranscription(finalText, true);
+            await handleFinalTranscription(finalText, true);
         }
     } catch (error) {
         isRecording = false;
@@ -151,7 +166,29 @@ async function stopRecording() {
     }
 }
 
-async function handleTranscription(text: string, isFinal: boolean = false) {
+async function handlePartialTranscription(text: string) {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) { return; }
+
+    await editor.edit(editBuilder => {
+        // Replace previous partial text if present
+        if (lastPartialRange) {
+            editBuilder.replace(lastPartialRange, text);
+        } else {
+            editBuilder.insert(editor.selection.active, text);
+        }
+    });
+
+    // Track the range of the partial text we just inserted
+    const startPos = lastPartialRange ? lastPartialRange.start : editor.selection.active;
+    const endPos = editor.document.positionAt(
+        editor.document.offsetAt(startPos) + text.length
+    );
+    lastPartialRange = new vscode.Range(startPos, endPos);
+    lastPartialText = text;
+}
+
+async function handleFinalTranscription(text: string, skipEnhance: boolean = false) {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         vscode.window.showWarningMessage('No active editor');
@@ -161,23 +198,28 @@ async function handleTranscription(text: string, isFinal: boolean = false) {
     let processedText = text;
 
     // Enhance with AI if enabled
-    if (transcriptionEnhancer && isFinal) {
+    if (transcriptionEnhancer && !skipEnhance) {
         try {
             processedText = await transcriptionEnhancer.enhance(text);
         } catch (error) {
             console.error('Enhancement failed:', error);
-            // Use original text if enhancement fails
         }
     }
 
-    // Insert text into editor
     await editor.edit(editBuilder => {
-        if (editor.selection.isEmpty) {
-            editBuilder.insert(editor.selection.active, processedText);
+        if (lastPartialRange) {
+            // Replace the partial with the final committed text
+            editBuilder.replace(lastPartialRange, processedText + ' ');
+        } else if (editor.selection.isEmpty) {
+            editBuilder.insert(editor.selection.active, processedText + ' ');
         } else {
-            editBuilder.replace(editor.selection, processedText);
+            editBuilder.replace(editor.selection, processedText + ' ');
         }
     });
+
+    // Reset partial tracking — text is now committed
+    lastPartialRange = null;
+    lastPartialText = '';
 }
 
 async function configureApiKey() {

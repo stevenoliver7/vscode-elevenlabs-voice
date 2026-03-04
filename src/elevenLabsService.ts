@@ -1,24 +1,43 @@
 import WebSocket from 'ws';
 import * as vscode from 'vscode';
 
+// Output channel for debugging
+let outputChannel: vscode.OutputChannel | null = null;
+
+function log(msg: string) {
+    if (!outputChannel) {
+        outputChannel = vscode.window.createOutputChannel('ElevenLabs Voice');
+    }
+    const ts = new Date().toISOString().slice(11, 23);
+    outputChannel.appendLine(`[${ts}] ${msg}`);
+    console.log(`[ElevenLabs] ${msg}`);
+}
+
 export class ElevenLabsService {
     private apiKey: string;
     private ws: WebSocket | null = null;
     private isTranscribing = false;
+    private fullTranscript = '';
 
     constructor(apiKey: string) {
         this.apiKey = apiKey;
     }
 
-    async startTranscription(onText: (text: string) => void): Promise<void> {
+    async startTranscription(
+        onPartial: (text: string) => void,
+        onFinal: (text: string) => void
+    ): Promise<void> {
         if (this.isTranscribing) {
             throw new Error('Already transcribing');
         }
 
+        this.fullTranscript = '';
+
         return new Promise((resolve, reject) => {
             try {
-                // CORRECT endpoint and model for ElevenLabs STT
-                const wsUrl = `wss://api.elevenlabs.io/v1/speech-to-text/realtime?model_id=scribe_v2_realtime`;
+                const wsUrl = `wss://api.elevenlabs.io/v1/speech-to-text/realtime`;
+
+                log(`Connecting to ${wsUrl}`);
 
                 this.ws = new WebSocket(wsUrl, {
                     headers: {
@@ -26,64 +45,71 @@ export class ElevenLabsService {
                     }
                 });
 
-                this.ws.on('open', async () => {
+                this.ws.on('open', () => {
                     this.isTranscribing = true;
-                    console.log('Connected to ElevenLabs');
-                    
-                    // Configure audio format for raw PCM
-                    const configMessage = {
-                        type: 'configure',
-                        audio_format: {
-                            sample_rate: 16000,
-                            encoding: 'pcm_s16le',
-                            channels: 1
-                        }
+                    log('WebSocket connected');
+
+                    // Start audio buffer session
+                    const startMsg = {
+                        type: 'input_audio_buffer_start',
+                        language_code: 'en',
+                        audio_format: 'pcm_16000'
                     };
-                    
-                    this.ws!.send(JSON.stringify(configMessage));
-                    console.log('Audio format configured: PCM 16-bit LE, 16kHz, Mono');
-                    
+                    this.ws!.send(JSON.stringify(startMsg));
+                    log('Sent input_audio_buffer_start');
+
+                    // Show output channel so user can see logs
+                    if (outputChannel) {
+                        outputChannel.show(true);
+                    }
+
                     resolve();
                 });
 
                 this.ws.on('message', (data: WebSocket.Data) => {
                     try {
-                        const message = JSON.parse(data.toString());
-                        const msgType = message.type || message.message_type;
+                        const raw = data.toString();
+                        const message = JSON.parse(raw);
+                        const msgType = message.type || message.message_type || '';
 
-                        // Handle different message types
-                        if (msgType === 'session_started') {
-                            console.log('ElevenLabs session started:', message.session_id);
-                        } else if (msgType === 'transcription_partial') {
-                            const text = message.text || '';
+                        log(`← ${msgType}: ${JSON.stringify(message).slice(0, 300)}`);
+
+                        if (msgType === 'partial_transcript' || msgType === 'partial') {
+                            const text = message.transcript || message.text || '';
                             if (text) {
-                                onText(text);
+                                onPartial(text);
                             }
-                        } else if (msgType === 'transcription_committed') {
-                            const text = message.text || '';
+                        } else if (
+                            msgType === 'final_transcript' ||
+                            msgType === 'committed' ||
+                            msgType === 'transcription'
+                        ) {
+                            const text = message.transcript || message.text || '';
                             if (text) {
-                                onText(text);
+                                this.fullTranscript += (this.fullTranscript ? ' ' : '') + text;
+                                onFinal(text);
                             }
-                        } else if (msgType === 'final_transcription') {
-                            const text = message.text || '';
-                            if (text) {
-                                onText(text);
-                            }
+                        } else if (msgType === 'error') {
+                            const errMsg = message.error || message.message || JSON.stringify(message);
+                            log(`ERROR from API: ${errMsg}`);
+                            vscode.window.showErrorMessage(`ElevenLabs: ${errMsg}`);
+                        } else if (msgType === 'session_started' || msgType === 'session_begin') {
+                            log(`Session started: ${message.session_id || ''}`);
                         }
                     } catch (error) {
-                        console.error('Failed to parse message:', error);
+                        log(`Failed to parse message: ${error}`);
                     }
                 });
 
                 this.ws.on('error', (error: Error) => {
-                    console.error('WebSocket error:', error);
+                    log(`WebSocket error: ${error.message}`);
                     this.isTranscribing = false;
                     reject(error);
                 });
 
-                this.ws.on('close', () => {
+                this.ws.on('close', (code, reason) => {
                     this.isTranscribing = false;
-                    console.log('Disconnected from ElevenLabs');
+                    log(`WebSocket closed: code=${code} reason=${reason?.toString() || 'none'}`);
                 });
 
             } catch (error) {
@@ -95,51 +121,72 @@ export class ElevenLabsService {
     async stopTranscription(): Promise<string> {
         return new Promise((resolve) => {
             if (this.ws && this.isTranscribing) {
-                // Send close event for final transcription
-                this.ws.send(JSON.stringify({ 
-                    type: 'close_session' 
-                }));
+                log('Stopping transcription...');
 
-                // Wait for final transcription
+                // Send end-of-stream / close
+                try {
+                    this.ws.send(JSON.stringify({ type: 'input_audio_buffer_stop' }));
+                    log('Sent input_audio_buffer_stop');
+                } catch (e) {
+                    log(`Error sending stop: ${e}`);
+                }
+
+                // Wait briefly for any final messages, then close
                 const finalHandler = (data: WebSocket.Data) => {
                     try {
                         const message = JSON.parse(data.toString());
-                        const msgType = message.type || message.message_type;
-                        
-                        if (msgType === 'final_transcription' || msgType === 'session_ended') {
-                            this.ws?.off('message', finalHandler);
-                            this.ws?.close();
-                            this.isTranscribing = false;
-                            resolve(message.text || '');
+                        const msgType = message.type || message.message_type || '';
+                        log(`← (final phase) ${msgType}: ${JSON.stringify(message).slice(0, 200)}`);
+
+                        if (
+                            msgType === 'final_transcript' ||
+                            msgType === 'committed' ||
+                            msgType === 'session_ended'
+                        ) {
+                            const text = message.transcript || message.text || '';
+                            if (text) {
+                                this.fullTranscript += (this.fullTranscript ? ' ' : '') + text;
+                            }
                         }
-                    } catch (error: unknown) {
-                        console.error('Error parsing final message:', error);
-                        resolve('');
+                    } catch (error) {
+                        log(`Error in final handler: ${error}`);
                     }
                 };
 
                 this.ws.on('message', finalHandler);
 
-                // Timeout after 5 seconds
+                // Close after 2 seconds
                 setTimeout(() => {
                     if (this.ws) {
                         this.ws.off('message', finalHandler);
                         this.ws.close();
                         this.isTranscribing = false;
-                        resolve('');
+                        log(`Final transcript: "${this.fullTranscript}"`);
+                        resolve(this.fullTranscript);
+                    } else {
+                        resolve(this.fullTranscript);
                     }
-                }, 5000);
+                }, 2000);
             } else {
-                resolve('');
+                resolve(this.fullTranscript);
             }
         });
     }
 
     async sendAudioChunk(audioData: Buffer): Promise<void> {
-        if (this.ws && this.isTranscribing) {
-            // Send raw PCM audio directly as binary
-            this.ws.send(audioData, { binary: true });
+        if (this.ws && this.isTranscribing && this.ws.readyState === WebSocket.OPEN) {
+            // Base64-encode PCM audio and send as JSON
+            const base64Audio = audioData.toString('base64');
+            const message = JSON.stringify({
+                type: 'input_audio_chunk',
+                audio: base64Audio
+            });
+            this.ws.send(message);
         }
+    }
+
+    getFullTranscript(): string {
+        return this.fullTranscript;
     }
 
     dispose() {

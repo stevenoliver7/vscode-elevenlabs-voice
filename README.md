@@ -2,6 +2,17 @@
 
 High-quality voice input for VS Code using ElevenLabs real-time transcription API.
 
+## ✨ Status: Ready for Testing!
+
+**Current Progress:** 70% complete
+- ✅ Core features built
+- ✅ Automated tests passing
+- ⏳ Manual testing in VS Code needed
+
+**Quick Start:** See [QUICK_START.md](QUICK_START.md) to test now!
+
+---
+
 ## Why This Exists
 
 The built-in VS Code voice dictation has quality issues, especially in quiet office environments. ElevenLabs' real-time v2 API provides significantly better transcription quality, making it perfect for professional use.

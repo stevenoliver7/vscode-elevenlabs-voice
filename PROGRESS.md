@@ -31,8 +31,15 @@
 
 ### 📋 Waiting For
 - [ ] ElevenLabs API key from Daniel ⏳
+- [ ] Claude/OpenAI API key for enhancement testing
 - [ ] Testing environment setup
 - [ ] Real API connection test
+
+### 🔄 Can Work On Now
+- [ ] Enhancement service testing (with mock data)
+- [ ] UI/UX improvements
+- [ ] Documentation
+- [ ] Error handling improvements
 
 ### 🎯 Goals
 - High-quality voice input

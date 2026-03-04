@@ -101,9 +101,6 @@ async function startRecording() {
     }
 
     try {
-        isRecording = true;
-        updateStatusBar();
-
         // Start ElevenLabs connection
         await elevenLabsService.startTranscription(async (text: string) => {
             await handleTranscription(text);
@@ -111,10 +108,17 @@ async function startRecording() {
 
         // Start audio capture
         await audioCapture.startRecording();
+        
+        isRecording = true;
+        updateStatusBar();
+        
+        // Set context for keybinding
+        await vscode.commands.executeCommand('setContext', 'elevenlabsVoice.recording', true);
 
     } catch (error) {
         isRecording = false;
         updateStatusBar();
+        await vscode.commands.executeCommand('setContext', 'elevenlabsVoice.recording', false);
         vscode.window.showErrorMessage(`Failed to start recording: ${error}`);
     }
 }
@@ -132,11 +136,17 @@ async function stopRecording() {
         const finalText = await elevenLabsService.stopTranscription();
         isRecording = false;
         updateStatusBar();
+        
+        // Clear context for keybinding
+        await vscode.commands.executeCommand('setContext', 'elevenlabsVoice.recording', false);
 
         if (finalText) {
             await handleTranscription(finalText, true);
         }
     } catch (error) {
+        isRecording = false;
+        updateStatusBar();
+        await vscode.commands.executeCommand('setContext', 'elevenlabsVoice.recording', false);
         vscode.window.showErrorMessage(`Failed to stop recording: ${error}`);
     }
 }
@@ -208,4 +218,6 @@ export function deactivate() {
     if (statusBarItem) {
         statusBarItem.dispose();
     }
+    // Clear recording context
+    vscode.commands.executeCommand('setContext', 'elevenlabsVoice.recording', false);
 }

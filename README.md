@@ -2,6 +2,31 @@
 
 High-quality voice input for VS Code using ElevenLabs real-time transcription API.
 
+## ⚠️ Requirements
+
+**This extension requires ffmpeg to be installed:**
+
+```bash
+# macOS
+brew install ffmpeg
+
+# Linux (Debian/Ubuntu)
+sudo apt update && sudo apt install ffmpeg
+
+# Linux (RHEL/Fedora)
+sudo dnf install ffmpeg
+
+# Windows (using Chocolatey)
+choco install ffmpeg
+
+# Windows (using Scoop)
+scoop install ffmpeg
+```
+
+Verify installation: `ffmpeg -version`
+
+---
+
 ## ✨ Status: Ready for Testing!
 
 **Current Progress:** 70% complete
@@ -36,22 +61,36 @@ The built-in VS Code voice dictation has quality issues, especially in quiet off
 ## Installation
 
 ### Prerequisites
-- VS Code 1.85+
-- ElevenLabs API key ([get one here](https://elevenlabs.io))
+- ✅ VS Code 1.85+
+- ✅ ElevenLabs API key ([get one here](https://elevenlabs.io))
+- ✅ **ffmpeg installed** (see Requirements above)
 
-### Setup
-1. Install extension
-2. Open Command Palette (`Cmd+Shift+P`)
-3. Run "ElevenLabs Voice: Configure API Key"
-4. Enter your ElevenLabs API key
+### Install from Source
+```bash
+git clone https://github.com/stevenoliver7/vscode-elevenlabs-voice.git
+cd vscode-elevenlabs-voice
+npm install
+npm run compile
+npm install -g @vscode/vsce
+vsce package
+code --install-extension vscode-elevenlabs-voice-0.0.1.vsix
+```
+
+For detailed installation instructions, see [INSTALLATION.md](INSTALLATION.md)
+
+---
 
 ## Usage
 
 ### Basic Voice Input
-1. Open Command Palette
-2. Run "ElevenLabs Voice: Start Recording"
-3. Speak your text
-4. Text appears in active editor
+1. Open Command Palette (`Cmd+Shift+P` or `Ctrl+Shift+P`)
+2. Run "ElevenLabs Voice: Configure API Key"
+3. Enter your ElevenLabs API key
+4. Open any text file
+5. Press `Cmd+Alt+V` (macOS) or `Ctrl+Alt+V` (Windows/Linux)
+6. Speak your text
+7. Press `Cmd+Alt+V` again to stop
+8. Text appears in active editor
 
 ### With GitHub Copilot
 1. Open Copilot chat

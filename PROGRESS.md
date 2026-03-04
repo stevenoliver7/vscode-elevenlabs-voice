@@ -30,8 +30,9 @@
 - [ ] Test error scenarios
 
 ### 📋 Waiting For
-- [ ] ElevenLabs API key from Daniel
+- [ ] ElevenLabs API key from Daniel ⏳
 - [ ] Testing environment setup
+- [ ] Real API connection test
 
 ### 🎯 Goals
 - High-quality voice input

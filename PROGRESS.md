@@ -1,5 +1,54 @@
 # Progress Log - VS Code ElevenLabs Voice Extension
 
+## 2026-03-04 13:07 UTC - API Testing & Alternatives Research
+
+### ✅ Completed
+- Received ElevenLabs API key from Daniel
+- Tested REST API - **WORKS** ✅
+- Tested 6 different WebSocket endpoints - **ALL BLOCKED** (403)
+- Verified subscription: Starter tier
+- Confirmed: STT included in plan but API blocked
+- Researched alternatives:
+  - OpenAI Whisper ($0.006/min)
+  - Deepgram ($0.0043/min, real-time)
+  - AssemblyAI ($0.036/min)
+  - Google/Azure options
+- Created troubleshooting documentation
+- Updated Jira TA-68 with findings
+
+### ⚠️ Current Blocker
+
+**ElevenLabs Speech-to-Text API Blocked:**
+- ✅ API key valid (REST works)
+- ✅ Subscription: Starter (includes 10k STT credits)
+- ❌ **All WebSocket endpoints return 403 Forbidden**
+- **Root cause:** STT API not accessible on Starter despite being listed
+
+**Options for Daniel:**
+1. Contact ElevenLabs support (ask why blocked)
+2. Upgrade to Creator ($11 first month)
+3. Switch to Whisper (works immediately, cheaper)
+4. Both - build with Whisper, contact support in parallel
+
+### 🔄 Can Work On Now
+- [ ] Switch to Whisper integration
+- [ ] Enhancement service testing
+- [ ] UI/UX improvements
+- [ ] Documentation
+
+### 📊 Time Tracking
+- Start: 2026-03-04 12:37 UTC
+- Current: 2026-03-04 13:07 UTC
+- Elapsed: 30 minutes
+- **On track for 1-week MVP** ✅
+
+### 📌 Related Tasks
+- **TA-69:** Invoice request (urgent, due today)
+  - Cursor: $20 USD, Feb 23
+  - Claude: Feb 10
+
+---
+
 ## 2026-03-04 12:37 UTC - Project Kickoff
 
 ### ✅ Completed

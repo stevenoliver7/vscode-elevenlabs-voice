@@ -1,6 +1,6 @@
 /**
  * test_ws_protocol.mjs
- * 
+ *
  * Standalone test that validates the ElevenLabs realtime STT WebSocket protocol.
  * Uses the exact same libraries (ws) and logic that the extension will use.
  *
@@ -101,7 +101,7 @@ ws.on('open', () => {
             clearInterval(interval);
             audioSent = true;
             log('→', `Done sending ${sent} audio chunks (${sent * chunkMs}ms)`);
-            
+
             // Wait a bit, then close
             setTimeout(() => {
                 log('→', 'Closing connection');
@@ -171,7 +171,7 @@ ws.on('close', (code, reason) => {
     log('ℹ️', `WebSocket closed: code=${code} reason=${reason?.toString() || 'none'}`);
 
     // If audio was sent without getting input_error, it was accepted
-    if (audioSent && !results.errors.some(e => 
+    if (audioSent && !results.errors.some(e =>
         (e.message_type || '').includes('input_error'))) {
         results.audioAccepted = true;
     }

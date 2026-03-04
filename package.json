@@ -1,0 +1,108 @@
+{
+  "name": "vscode-elevenlabs-voice",
+  "displayName": "ElevenLabs Voice for VS Code",
+  "description": "High-quality voice input using ElevenLabs real-time transcription",
+  "version": "0.0.1",
+  "publisher": "openclaw-community",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "voice",
+    "dictation",
+    "speech-to-text",
+    "elevenlabs",
+    "ai",
+    "copilot"
+  ],
+  "activationEvents": [
+    "onCommand:elevenlabsVoice.startRecording",
+    "onCommand:elevenlabsVoice.configureApiKey"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "elevenlabsVoice.startRecording",
+        "title": "ElevenLabs Voice: Start Recording"
+      },
+      {
+        "command": "elevenlabsVoice.stopRecording",
+        "title": "ElevenLabs Voice: Stop Recording"
+      },
+      {
+        "command": "elevenlabsVoice.configureApiKey",
+        "title": "ElevenLabs Voice: Configure API Key"
+      }
+    ],
+    "configuration": {
+      "title": "ElevenLabs Voice",
+      "properties": {
+        "elevenlabsVoice.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Your ElevenLabs API key"
+        },
+        "elevenlabsVoice.enhancement.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable AI-powered transcription enhancement"
+        },
+        "elevenlabsVoice.enhancement.model": {
+          "type": "string",
+          "default": "claude-3-5-sonnet-20241022",
+          "description": "Model to use for enhancement (claude-3-5-sonnet-20241022, gpt-4-turbo)"
+        },
+        "elevenlabsVoice.enhancement.provider": {
+          "type": "string",
+          "default": "anthropic",
+          "enum": ["anthropic", "openai"],
+          "description": "AI provider for enhancement"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "elevenlabsVoice.startRecording",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "elevenlabsVoice.stopRecording",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "elevenlabsVoice.recording"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0",
+    "typescript": "^5.3.2"
+  },
+  "dependencies": {
+    "ws": "^8.14.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stevenoliver7/vscode-elevenlabs-voice.git"
+  },
+  "license": "MIT"
+}

@@ -1,9 +1,11 @@
 import * as vscode from 'vscode';
 import { ElevenLabsService } from './elevenLabsService';
 import { TranscriptionEnhancer } from './transcriptionEnhancer';
+import { AudioCapture } from './audioCapture';
 
 let elevenLabsService: ElevenLabsService | null = null;
 let transcriptionEnhancer: TranscriptionEnhancer | null = null;
+let audioCapture: AudioCapture | null = null;
 let isRecording = false;
 let statusBarItem: vscode.StatusBarItem;
 
@@ -55,6 +57,15 @@ function initializeServices() {
 
     if (apiKey) {
         elevenLabsService = new ElevenLabsService(apiKey);
+        
+        // Initialize audio capture
+        audioCapture = new AudioCapture();
+        audioCapture.initialize(async (chunk: Buffer) => {
+            // Send audio chunk to ElevenLabs
+            if (elevenLabsService) {
+                await elevenLabsService.sendAudioChunk(chunk);
+            }
+        });
 
         const enhancementEnabled = config.get<boolean>('enhancement.enabled');
         if (enhancementEnabled) {
@@ -74,9 +85,9 @@ async function startRecording() {
         return;
     }
 
-    if (!elevenLabsService) {
+    if (!elevenLabsService || !audioCapture) {
         const action = await vscode.window.showErrorMessage(
-            'ElevenLabs API key not configured. Please configure it first.',
+            'Extension not initialized. Please configure API key first.',
             'Configure'
         );
         if (action === 'Configure') {
@@ -89,11 +100,13 @@ async function startRecording() {
         isRecording = true;
         updateStatusBar();
 
-        vscode.window.showInformationMessage('🎤 Recording... Press the button again to stop.');
-
+        // Start ElevenLabs connection
         await elevenLabsService.startTranscription(async (text: string) => {
             await handleTranscription(text);
         });
+
+        // Start audio capture
+        await audioCapture.startRecording();
 
     } catch (error) {
         isRecording = false;
@@ -103,11 +116,15 @@ async function startRecording() {
 }
 
 async function stopRecording() {
-    if (!isRecording || !elevenLabsService) {
+    if (!isRecording || !elevenLabsService || !audioCapture) {
         return;
     }
 
     try {
+        // Stop audio capture
+        await audioCapture.stopRecording();
+
+        // Stop ElevenLabs and get final transcription
         const finalText = await elevenLabsService.stopTranscription();
         isRecording = false;
         updateStatusBar();
@@ -115,8 +132,6 @@ async function stopRecording() {
         if (finalText) {
             await handleTranscription(finalText, true);
         }
-
-        vscode.window.showInformationMessage('✅ Recording stopped');
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to stop recording: ${error}`);
     }
@@ -182,6 +197,9 @@ function updateStatusBar() {
 export function deactivate() {
     if (elevenLabsService) {
         elevenLabsService.dispose();
+    }
+    if (audioCapture) {
+        audioCapture.dispose();
     }
     if (statusBarItem) {
         statusBarItem.dispose();

@@ -8,12 +8,12 @@
 - [x] Basic UI (status bar, commands)
 - [x] README and documentation
 
-## Phase 2: Audio Capture (Next)
-- [ ] Research audio capture methods in VS Code
-- [ ] Implement microphone access
-- [ ] Audio chunk streaming
-- [ ] Noise cancellation
-- [ ] VAD (Voice Activity Detection)
+## Phase 2: Audio Capture ✅ (Done)
+- [x] Research audio capture methods in VS Code
+- [x] Implement microphone access (WebView approach)
+- [x] Audio chunk streaming
+- [x] Real-time audio processing
+- [x] UI for recording indicator
 
 ## Phase 3: ElevenLabs Integration
 - [ ] Test WebSocket connection

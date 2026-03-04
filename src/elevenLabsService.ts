@@ -26,9 +26,23 @@ export class ElevenLabsService {
                     }
                 });
 
-                this.ws.on('open', () => {
+                this.ws.on('open', async () => {
                     this.isTranscribing = true;
                     console.log('Connected to ElevenLabs');
+                    
+                    // Configure audio format for raw PCM
+                    const configMessage = {
+                        type: 'configure',
+                        audio_format: {
+                            sample_rate: 16000,
+                            encoding: 'pcm_s16le',
+                            channels: 1
+                        }
+                    };
+                    
+                    this.ws!.send(JSON.stringify(configMessage));
+                    console.log('Audio format configured: PCM 16-bit LE, 16kHz, Mono');
+                    
                     resolve();
                 });
 
@@ -123,15 +137,8 @@ export class ElevenLabsService {
 
     async sendAudioChunk(audioData: Buffer): Promise<void> {
         if (this.ws && this.isTranscribing) {
-            return new Promise((resolve, reject) => {
-                this.ws!.send(audioData, (error) => {
-                    if (error) {
-                        reject(error);
-                    } else {
-                        resolve();
-                    }
-                });
-            });
+            // Send raw PCM audio directly as binary
+            this.ws.send(audioData, { binary: true });
         }
     }
 

@@ -58,13 +58,16 @@ function initializeServices() {
     if (apiKey) {
         elevenLabsService = new ElevenLabsService(apiKey);
         
-        // Initialize audio capture
+        // Initialize audio capture (no WebView needed)
         audioCapture = new AudioCapture();
         audioCapture.initialize(async (chunk: Buffer) => {
             // Send audio chunk to ElevenLabs
             if (elevenLabsService) {
-                await elevenLabsService.sendAudioChunk(chunk);
+                elevenLabsService.sendAudioChunk(chunk);
             }
+        }).catch((error) => {
+            console.error('Failed to initialize audio capture:', error);
+            // Error already shown to user in AudioCapture.initialize()
         });
 
         const enhancementEnabled = config.get<boolean>('enhancement.enabled');
@@ -76,6 +79,7 @@ function initializeServices() {
     } else {
         elevenLabsService = null;
         transcriptionEnhancer = null;
+        audioCapture = null;
     }
 }
 

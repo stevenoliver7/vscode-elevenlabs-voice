@@ -72,14 +72,14 @@
     "keybindings": [
       {
         "command": "elevenlabsVoice.startRecording",
-        "key": "ctrl+shift+v",
-        "mac": "cmd+shift+v",
+        "key": "ctrl+alt+v",
+        "mac": "cmd+alt+v",
         "when": "editorTextFocus"
       },
       {
         "command": "elevenlabsVoice.stopRecording",
-        "key": "ctrl+shift+v",
-        "mac": "cmd+shift+v",
+        "key": "ctrl+alt+v",
+        "mac": "cmd+alt+v",
         "when": "elevenlabsVoice.recording"
       }
     ]

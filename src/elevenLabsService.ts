@@ -23,6 +23,7 @@ export class ElevenLabsService {
     private ws: WebSocket | null = null;
     private isTranscribing = false;
     private fullTranscript = '';
+    private sentFirstChunk = false;
 
     constructor(apiKey: string) {
         this.apiKey = apiKey;
@@ -43,6 +44,7 @@ export class ElevenLabsService {
             throw new Error('Already transcribing');
         }
         this.fullTranscript = '';
+        this.sentFirstChunk = false;
 
         return new Promise((resolve, reject) => {
             try {
@@ -191,16 +193,15 @@ export class ElevenLabsService {
         if (this.ws.readyState !== WebSocket.OPEN) { return; }
 
         // CORRECT protocol: message_type + audio_base_64
-        // Include previous_text for maximum rewrite context
         const payload: Record<string, unknown> = {
             message_type: 'input_audio_chunk',
             audio_base_64: audioData.toString('base64'),
         };
-        // Feed back recent transcript so model can rewrite with full context
-        if (this.fullTranscript.length > 0) {
-            // Last ~200 chars of committed text as context
+        // previous_text is only allowed on the FIRST audio chunk
+        if (!this.sentFirstChunk && this.fullTranscript.length > 0) {
             payload.previous_text = this.fullTranscript.slice(-200);
         }
+        this.sentFirstChunk = true;
         this.ws.send(JSON.stringify(payload));
     }
 

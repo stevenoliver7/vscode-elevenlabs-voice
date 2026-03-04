@@ -61,7 +61,10 @@
         "elevenlabsVoice.enhancement.provider": {
           "type": "string",
           "default": "anthropic",
-          "enum": ["anthropic", "openai"],
+          "enum": [
+            "anthropic",
+            "openai"
+          ],
           "description": "AI provider for enhancement"
         }
       }
@@ -93,6 +96,7 @@
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
     "eslint": "^8.54.0",

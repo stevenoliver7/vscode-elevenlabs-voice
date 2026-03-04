@@ -4,3 +4,5 @@ out
 *.vsix
 .env
 .DS_Store
+credentials/
+*.env

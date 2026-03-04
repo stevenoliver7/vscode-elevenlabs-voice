@@ -61,7 +61,7 @@ export class ElevenLabsService {
                     }
                 });
 
-                this.ws.on('error', (error) => {
+                this.ws.on('error', (error: Error) => {
                     console.error('WebSocket error:', error);
                     this.isTranscribing = false;
                     reject(error);
@@ -98,7 +98,7 @@ export class ElevenLabsService {
                             this.isTranscribing = false;
                             resolve(message.text || '');
                         }
-                    } catch (error) {
+                    } catch (error: unknown) {
                         console.error('Error parsing final message:', error);
                         resolve('');
                     }

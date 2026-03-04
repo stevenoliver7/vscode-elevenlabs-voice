@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
 import * as vscode from 'vscode';
 
-// Output channel for debugging
+// ── Logging ─────────────────────────────────────────────────────────────────
 let outputChannel: vscode.OutputChannel | null = null;
 
 function log(msg: string) {
@@ -13,6 +13,11 @@ function log(msg: string) {
     console.log(`[ElevenLabs] ${msg}`);
 }
 
+export function showLog() {
+    outputChannel?.show(true);
+}
+
+// ── Service ─────────────────────────────────────────────────────────────────
 export class ElevenLabsService {
     private apiKey: string;
     private ws: WebSocket | null = null;
@@ -23,6 +28,13 @@ export class ElevenLabsService {
         this.apiKey = apiKey;
     }
 
+    /**
+     * Open WebSocket, start streaming session.
+     *
+     * Callbacks:
+     *  - onPartial(text)  → interim result (replace previous partial)
+     *  - onFinal(text)    → committed result (append permanently)
+     */
     async startTranscription(
         onPartial: (text: string) => void,
         onFinal: (text: string) => void
@@ -30,77 +42,87 @@ export class ElevenLabsService {
         if (this.isTranscribing) {
             throw new Error('Already transcribing');
         }
-
         this.fullTranscript = '';
 
         return new Promise((resolve, reject) => {
             try {
-                const wsUrl = `wss://api.elevenlabs.io/v1/speech-to-text/realtime`;
+                // ── Build URL with REQUIRED query params ────────────────
+                const params = new URLSearchParams({
+                    model_id: 'scribe_v2_realtime',   // REQUIRED
+                    audio_format: 'pcm_16000',        // 16 kHz 16-bit LE mono
+                    language_code: 'en',
+                    commit_strategy: 'vad',           // auto-commit on silence
+                    // ── Aggressive rewrite tuning ────────────────────
+                    vad_silence_threshold_secs: '0.8', // commit faster (default 1.5)
+                    vad_threshold: '0.35',             // more sensitive VAD
+                    min_speech_duration_ms: '50',      // catch short words
+                    min_silence_duration_ms: '50',     // react faster to pauses
+                });
+                const wsUrl = `wss://api.elevenlabs.io/v1/speech-to-text/realtime?${params}`;
 
                 log(`Connecting to ${wsUrl}`);
 
                 this.ws = new WebSocket(wsUrl, {
-                    headers: {
-                        'xi-api-key': this.apiKey
-                    }
+                    headers: { 'xi-api-key': this.apiKey },
                 });
 
+                // ── open ────────────────────────────────────────────────
                 this.ws.on('open', () => {
                     this.isTranscribing = true;
-                    log('WebSocket connected');
-
-                    // Start audio buffer session
-                    const startMsg = {
-                        type: 'input_audio_buffer_start',
-                        language_code: 'en',
-                        audio_format: 'pcm_16000'
-                    };
-                    this.ws!.send(JSON.stringify(startMsg));
-                    log('Sent input_audio_buffer_start');
-
-                    // Show output channel so user can see logs
-                    if (outputChannel) {
-                        outputChannel.show(true);
-                    }
-
+                    log('WebSocket connected — waiting for session_started');
+                    // No config message needed: params are in the URL.
+                    // session_started arrives automatically.
+                    showLog();
                     resolve();
                 });
 
+                // ── message ─────────────────────────────────────────────
                 this.ws.on('message', (data: WebSocket.Data) => {
                     try {
                         const raw = data.toString();
-                        const message = JSON.parse(raw);
-                        const msgType = message.type || message.message_type || '';
+                        const msg = JSON.parse(raw);
+                        const t = msg.message_type || '';
 
-                        log(`← ${msgType}: ${JSON.stringify(message).slice(0, 300)}`);
+                        log(`← ${t}: ${raw.slice(0, 400)}`);
 
-                        if (msgType === 'partial_transcript' || msgType === 'partial') {
-                            const text = message.transcript || message.text || '';
-                            if (text) {
-                                onPartial(text);
+                        switch (t) {
+                            case 'session_started':
+                                log(`Session ${msg.session_id} ready`);
+                                break;
+
+                            case 'partial_transcript': {
+                                const text = msg.text || '';
+                                if (text) { onPartial(text); }
+                                break;
                             }
-                        } else if (
-                            msgType === 'final_transcript' ||
-                            msgType === 'committed' ||
-                            msgType === 'transcription'
-                        ) {
-                            const text = message.transcript || message.text || '';
-                            if (text) {
-                                this.fullTranscript += (this.fullTranscript ? ' ' : '') + text;
-                                onFinal(text);
+
+                            case 'committed_transcript':
+                            case 'committed_transcript_with_timestamps': {
+                                const text = msg.text || '';
+                                if (text) {
+                                    this.fullTranscript +=
+                                        (this.fullTranscript ? ' ' : '') + text;
+                                    onFinal(text);
+                                }
+                                break;
                             }
-                        } else if (msgType === 'error') {
-                            const errMsg = message.error || message.message || JSON.stringify(message);
-                            log(`ERROR from API: ${errMsg}`);
-                            vscode.window.showErrorMessage(`ElevenLabs: ${errMsg}`);
-                        } else if (msgType === 'session_started' || msgType === 'session_begin') {
-                            log(`Session started: ${message.session_id || ''}`);
+
+                            default:
+                                if (t.includes('error')) {
+                                    const errMsg = msg.error || msg.message || raw;
+                                    log(`ERROR: ${errMsg}`);
+                                    vscode.window.showErrorMessage(
+                                        `ElevenLabs: ${errMsg}`
+                                    );
+                                }
+                                break;
                         }
-                    } catch (error) {
-                        log(`Failed to parse message: ${error}`);
+                    } catch (err) {
+                        log(`Parse error: ${err}`);
                     }
                 });
 
+                // ── error / close ───────────────────────────────────────
                 this.ws.on('error', (error: Error) => {
                     log(`WebSocket error: ${error.message}`);
                     this.isTranscribing = false;
@@ -118,71 +140,68 @@ export class ElevenLabsService {
         });
     }
 
+    /**
+     * Stop recording — wait briefly for any final VAD commit, then close.
+     */
     async stopTranscription(): Promise<string> {
         return new Promise((resolve) => {
-            if (this.ws && this.isTranscribing) {
-                log('Stopping transcription...');
-
-                // Send end-of-stream / close
-                try {
-                    this.ws.send(JSON.stringify({ type: 'input_audio_buffer_stop' }));
-                    log('Sent input_audio_buffer_stop');
-                } catch (e) {
-                    log(`Error sending stop: ${e}`);
-                }
-
-                // Wait briefly for any final messages, then close
-                const finalHandler = (data: WebSocket.Data) => {
-                    try {
-                        const message = JSON.parse(data.toString());
-                        const msgType = message.type || message.message_type || '';
-                        log(`← (final phase) ${msgType}: ${JSON.stringify(message).slice(0, 200)}`);
-
-                        if (
-                            msgType === 'final_transcript' ||
-                            msgType === 'committed' ||
-                            msgType === 'session_ended'
-                        ) {
-                            const text = message.transcript || message.text || '';
-                            if (text) {
-                                this.fullTranscript += (this.fullTranscript ? ' ' : '') + text;
-                            }
-                        }
-                    } catch (error) {
-                        log(`Error in final handler: ${error}`);
-                    }
-                };
-
-                this.ws.on('message', finalHandler);
-
-                // Close after 2 seconds
-                setTimeout(() => {
-                    if (this.ws) {
-                        this.ws.off('message', finalHandler);
-                        this.ws.close();
-                        this.isTranscribing = false;
-                        log(`Final transcript: "${this.fullTranscript}"`);
-                        resolve(this.fullTranscript);
-                    } else {
-                        resolve(this.fullTranscript);
-                    }
-                }, 2000);
-            } else {
+            if (!this.ws || !this.isTranscribing) {
                 resolve(this.fullTranscript);
+                return;
             }
+
+            log('Stopping — waiting 2 s for final VAD commit...');
+
+            // Listen for any last committed_transcript
+            const finalHandler = (data: WebSocket.Data) => {
+                try {
+                    const msg = JSON.parse(data.toString());
+                    const t = msg.message_type || '';
+                    log(`← (drain) ${t}: ${JSON.stringify(msg).slice(0, 200)}`);
+
+                    if (t === 'committed_transcript' || t === 'committed_transcript_with_timestamps') {
+                        const text = msg.text || '';
+                        if (text) {
+                            this.fullTranscript +=
+                                (this.fullTranscript ? ' ' : '') + text;
+                        }
+                    }
+                } catch { /* ignore */ }
+            };
+            this.ws.on('message', finalHandler);
+
+            setTimeout(() => {
+                if (this.ws) {
+                    this.ws.off('message', finalHandler);
+                    this.ws.close();
+                    this.isTranscribing = false;
+                }
+                log(`Full transcript: "${this.fullTranscript}"`);
+                resolve(this.fullTranscript);
+            }, 2000);
         });
     }
 
+    /**
+     * Send a raw PCM audio chunk (Buffer) to the API.
+     * Encodes as base64 inside the required JSON envelope.
+     */
     async sendAudioChunk(audioData: Buffer): Promise<void> {
-        if (this.ws && this.isTranscribing && this.ws.readyState === WebSocket.OPEN) {
-            // Base64-encode PCM audio and send as JSON
-            const base64Audio = audioData.toString('base64');
-            const message = JSON.stringify({
-                type: 'input_audio_chunk',
-                audio: base64Audio
-            });
-            this.ws.send(message);
+        if (!this.ws || !this.isTranscribing) { return; }
+        if (this.ws.readyState !== WebSocket.OPEN) { return; }
+
+        // CORRECT protocol: message_type + audio_base_64
+        // Include previous_text for maximum rewrite context
+        const payload: Record<string, unknown> = {
+            message_type: 'input_audio_chunk',
+            audio_base_64: audioData.toString('base64'),
+        };
+        // Feed back recent transcript so model can rewrite with full context
+        if (this.fullTranscript.length > 0) {
+            // Last ~200 chars of committed text as context
+            payload.previous_text = this.fullTranscript.slice(-200);
         }
+        this.ws.send(JSON.stringify(payload));
     }
 
     getFullTranscript(): string {

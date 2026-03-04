@@ -9,9 +9,32 @@ let audioCapture: AudioCapture | null = null;
 let isRecording = false;
 let statusBarItem: vscode.StatusBarItem;
 
-// Track partial transcription for inline replacement
-let lastPartialRange: vscode.Range | null = null;
-let lastPartialText: string = '';
+// ── Live-rewrite state ──────────────────────────────────────────────────────
+// Tracks the "live zone" — the range of text currently being rewritten by
+// incoming partial_transcript messages.  committed_transcript locks it in.
+
+let liveStart: vscode.Position | null = null;   // anchor: where partial text begins
+let liveRange: vscode.Range | null = null;       // current extent of partial text
+let editQueue: Promise<void> = Promise.resolve(); // serialises editor mutations
+
+// Decoration: subtle underline for "live / unconfirmed" text
+// (user prefers minimal visual noise)
+const liveDecorationType = vscode.window.createTextEditorDecorationType({
+    textDecoration: 'underline dotted rgba(150,150,150,0.4)',
+});
+
+/** Enqueue an editor mutation so they never overlap. */
+function enqueueEdit(fn: () => Promise<void>) {
+    editQueue = editQueue.then(fn, fn);      // run even if prev rejected
+}
+
+function clearLiveDecoration(editor: vscode.TextEditor | undefined) {
+    editor?.setDecorations(liveDecorationType, []);
+}
+
+function applyLiveDecoration(editor: vscode.TextEditor, range: vscode.Range) {
+    editor.setDecorations(liveDecorationType, [range]);
+}
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('ElevenLabs Voice extension is now active');
@@ -105,19 +128,26 @@ async function startRecording() {
     }
 
     try {
-        // Reset partial tracking
-        lastPartialRange = null;
-        lastPartialText = '';
+        // Reset live-rewrite state
+        liveStart = null;
+        liveRange = null;
+        editQueue = Promise.resolve();
+        clearLiveDecoration(vscode.window.activeTextEditor);
 
         // Start ElevenLabs connection with two callbacks
         await elevenLabsService.startTranscription(
-            // onPartial — replace previous partial inline
-            async (text: string) => {
-                await handlePartialTranscription(text);
+            // ── onPartial ───────────────────────────────────────────
+            // Each partial_transcript is the FULL rewritten hypothesis.
+            // The model rewrites earlier words as context grows.
+            // We replace the entire live zone each time.
+            (text: string) => {
+                enqueueEdit(() => handlePartial(text));
             },
-            // onFinal — commit text permanently
-            async (text: string) => {
-                await handleFinalTranscription(text);
+            // ── onFinal ─────────────────────────────────────────────
+            // committed_transcript = locked in. Replace live zone one
+            // last time, remove decoration, advance cursor.
+            (text: string) => {
+                enqueueEdit(() => handleCommitted(text));
             }
         );
 
@@ -144,20 +174,26 @@ async function stopRecording() {
     }
 
     try {
-        // Stop audio capture
+        // Stop audio capture first (stops sending chunks)
         await audioCapture.stopRecording();
 
-        // Stop ElevenLabs and get final transcription
-        const finalText = await elevenLabsService.stopTranscription();
+        // Stop ElevenLabs — waits for last VAD commit
+        await elevenLabsService.stopTranscription();
         isRecording = false;
         updateStatusBar();
+
+        // Clear live state
+        clearLiveDecoration(vscode.window.activeTextEditor);
+        liveStart = null;
+        liveRange = null;
 
         // Clear context for keybinding
         await vscode.commands.executeCommand('setContext', 'elevenlabsVoice.recording', false);
 
-        if (finalText) {
-            await handleFinalTranscription(finalText, true);
-        }
+        // Note: we do NOT re-insert finalText here.
+        // The onFinal callback already inserted each committed segment in real-time.
+        // stopTranscription() just waits for any last VAD commit to flush through
+        // the same callback pipeline.
     } catch (error) {
         isRecording = false;
         updateStatusBar();
@@ -166,60 +202,80 @@ async function stopRecording() {
     }
 }
 
-async function handlePartialTranscription(text: string) {
+// ── Live-rewrite handlers ───────────────────────────────────────────────────
+
+/**
+ * Handle a partial_transcript.
+ * The API sends the FULL current hypothesis — it may have rewritten earlier
+ * words ("I wanted" → "I want to book").  We replace the entire live zone.
+ */
+async function handlePartial(text: string) {
     const editor = vscode.window.activeTextEditor;
     if (!editor) { return; }
 
-    await editor.edit(editBuilder => {
-        // Replace previous partial text if present
-        if (lastPartialRange) {
-            editBuilder.replace(lastPartialRange, text);
+    const ok = await editor.edit(editBuilder => {
+        if (liveRange) {
+            // Replace existing live zone with the updated hypothesis
+            editBuilder.replace(liveRange, text);
         } else {
-            editBuilder.insert(editor.selection.active, text);
+            // First partial of a new segment — insert at cursor
+            liveStart = editor.selection.active;
+            editBuilder.insert(liveStart, text);
         }
     });
 
-    // Track the range of the partial text we just inserted
-    const startPos = lastPartialRange ? lastPartialRange.start : editor.selection.active;
-    const endPos = editor.document.positionAt(
-        editor.document.offsetAt(startPos) + text.length
-    );
-    lastPartialRange = new vscode.Range(startPos, endPos);
-    lastPartialText = text;
+    if (ok) {
+        // Recalculate live range after edit
+        const start = liveStart ?? editor.selection.active;
+        const end = editor.document.positionAt(
+            editor.document.offsetAt(start) + text.length
+        );
+        liveRange = new vscode.Range(start, end);
+
+        // Dim italic decoration so user sees this is "live / unconfirmed"
+        applyLiveDecoration(editor, liveRange);
+    }
 }
 
-async function handleFinalTranscription(text: string, skipEnhance: boolean = false) {
+/**
+ * Handle a committed_transcript.
+ * This is the final, locked-in text for the current segment.
+ * Replace live zone, clear decoration, add trailing space, reset for next segment.
+ */
+async function handleCommitted(text: string) {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showWarningMessage('No active editor');
+        vscode.window.showWarningMessage('No active editor to insert text');
         return;
     }
 
     let processedText = text;
 
-    // Enhance with AI if enabled
-    if (transcriptionEnhancer && !skipEnhance) {
+    // Optional AI enhancement on committed text
+    if (transcriptionEnhancer) {
         try {
             processedText = await transcriptionEnhancer.enhance(text);
         } catch (error) {
-            console.error('Enhancement failed:', error);
+            console.error('Enhancement failed, using original:', error);
         }
     }
 
-    await editor.edit(editBuilder => {
-        if (lastPartialRange) {
-            // Replace the partial with the final committed text
-            editBuilder.replace(lastPartialRange, processedText + ' ');
+    const finalText = processedText + ' ';
+
+    const ok = await editor.edit(editBuilder => {
+        if (liveRange) {
+            editBuilder.replace(liveRange, finalText);
         } else if (editor.selection.isEmpty) {
-            editBuilder.insert(editor.selection.active, processedText + ' ');
+            editBuilder.insert(editor.selection.active, finalText);
         } else {
-            editBuilder.replace(editor.selection, processedText + ' ');
+            editBuilder.replace(editor.selection, finalText);
         }
     });
 
-    // Reset partial tracking — text is now committed
-    lastPartialRange = null;
-    lastPartialText = '';
+    // Clear decorations and reset for next segment
+    clearLiveDecoration(editor);
+    liveStart = null;
+    liveRange = null;
 }
 
 async function configureApiKey() {

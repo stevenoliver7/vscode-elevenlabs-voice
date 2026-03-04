@@ -17,8 +17,8 @@ export class ElevenLabsService {
 
         return new Promise((resolve, reject) => {
             try {
-                // Connect to ElevenLabs WebSocket API
-                const wsUrl = `wss://api.elevenlabs.io/v1/speech-to-text?model_id=scribe_v1`;
+                // CORRECT endpoint and model for ElevenLabs STT
+                const wsUrl = `wss://api.elevenlabs.io/v1/speech-to-text/realtime?model_id=scribe_v2_realtime`;
 
                 this.ws = new WebSocket(wsUrl, {
                     headers: {
@@ -35,8 +35,22 @@ export class ElevenLabsService {
                 this.ws.on('message', (data: WebSocket.Data) => {
                     try {
                         const message = JSON.parse(data.toString());
+                        const msgType = message.type || message.message_type;
 
-                        if (message.type === 'transcription') {
+                        // Handle different message types
+                        if (msgType === 'session_started') {
+                            console.log('ElevenLabs session started:', message.session_id);
+                        } else if (msgType === 'transcription_partial') {
+                            const text = message.text || '';
+                            if (text) {
+                                onText(text);
+                            }
+                        } else if (msgType === 'transcription_committed') {
+                            const text = message.text || '';
+                            if (text) {
+                                onText(text);
+                            }
+                        } else if (msgType === 'final_transcription') {
                             const text = message.text || '';
                             if (text) {
                                 onText(text);
@@ -67,14 +81,18 @@ export class ElevenLabsService {
     async stopTranscription(): Promise<string> {
         return new Promise((resolve) => {
             if (this.ws && this.isTranscribing) {
-                // Send end of stream signal
-                this.ws.send(JSON.stringify({ type: 'end_of_stream' }));
+                // Send close event for final transcription
+                this.ws.send(JSON.stringify({ 
+                    type: 'close_session' 
+                }));
 
                 // Wait for final transcription
                 const finalHandler = (data: WebSocket.Data) => {
                     try {
                         const message = JSON.parse(data.toString());
-                        if (message.type === 'final_transcription') {
+                        const msgType = message.type || message.message_type;
+                        
+                        if (msgType === 'final_transcription' || msgType === 'session_ended') {
                             this.ws?.off('message', finalHandler);
                             this.ws?.close();
                             this.isTranscribing = false;

@@ -61,7 +61,7 @@ function initializeServices() {
 
     if (apiKey) {
         elevenLabsService = new ElevenLabsService(apiKey);
-        
+
         // Initialize audio capture (no WebView needed)
         audioCapture = new AudioCapture();
         audioCapture.initialize(async (chunk: Buffer) => {
@@ -123,10 +123,10 @@ async function startRecording() {
 
         // Start audio capture
         await audioCapture.startRecording();
-        
+
         isRecording = true;
         updateStatusBar();
-        
+
         // Set context for keybinding
         await vscode.commands.executeCommand('setContext', 'elevenlabsVoice.recording', true);
 
@@ -151,7 +151,7 @@ async function stopRecording() {
         const finalText = await elevenLabsService.stopTranscription();
         isRecording = false;
         updateStatusBar();
-        
+
         // Clear context for keybinding
         await vscode.commands.executeCommand('setContext', 'elevenlabsVoice.recording', false);
 

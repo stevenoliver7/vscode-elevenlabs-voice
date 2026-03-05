@@ -6,11 +6,11 @@ let outputChannel: vscode.OutputChannel | null = null;
 
 function log(msg: string) {
     if (!outputChannel) {
-        outputChannel = vscode.window.createOutputChannel('ElevenLabs Voice');
+        outputChannel = vscode.window.createOutputChannel('Voice Scribe');
     }
     const ts = new Date().toISOString().slice(11, 23);
     outputChannel.appendLine(`[${ts}] ${msg}`);
-    console.log(`[ElevenLabs] ${msg}`);
+    console.log(`[VoiceScribe] ${msg}`);
 }
 
 export function showLog() {
@@ -114,7 +114,7 @@ export class ElevenLabsService {
                                     const errMsg = msg.error || msg.message || raw;
                                     log(`ERROR: ${errMsg}`);
                                     vscode.window.showErrorMessage(
-                                        `ElevenLabs: ${errMsg}`
+                                        `Voice Scribe: ${errMsg}`
                                     );
                                 }
                                 break;

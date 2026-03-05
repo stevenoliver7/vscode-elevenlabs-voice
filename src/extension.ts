@@ -37,11 +37,11 @@ function applyLiveDecoration(editor: vscode.TextEditor, range: vscode.Range) {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('ElevenLabs Voice extension is now active');
+    console.log('Voice Scribe extension is now active');
 
     // Create status bar item
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    statusBarItem.command = 'elevenlabsVoice.startRecording';
+    statusBarItem.command = 'voiceScribe.startRecording';
     context.subscriptions.push(statusBarItem);
     updateStatusBar();
 
@@ -50,17 +50,17 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register commands
     const startRecordingCommand = vscode.commands.registerCommand(
-        'elevenlabsVoice.startRecording',
+        'voiceScribe.startRecording',
         () => startRecording()
     );
 
     const stopRecordingCommand = vscode.commands.registerCommand(
-        'elevenlabsVoice.stopRecording',
+        'voiceScribe.stopRecording',
         () => stopRecording()
     );
 
     const configureApiKeyCommand = vscode.commands.registerCommand(
-        'elevenlabsVoice.configureApiKey',
+        'voiceScribe.configureApiKey',
         () => configureApiKey()
     );
 
@@ -71,7 +71,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Listen for configuration changes
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration(e => {
-            if (e.affectsConfiguration('elevenlabsVoice')) {
+            if (e.affectsConfiguration('voiceScribe')) {
                 initializeServices();
             }
         })
@@ -79,7 +79,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 function initializeServices() {
-    const config = vscode.workspace.getConfiguration('elevenlabsVoice');
+    const config = vscode.workspace.getConfiguration('voiceScribe');
     const apiKey = config.get<string>('apiKey');
 
     if (apiKey) {
@@ -158,12 +158,12 @@ async function startRecording() {
         updateStatusBar();
 
         // Set context for keybinding
-        await vscode.commands.executeCommand('setContext', 'elevenlabsVoice.recording', true);
+        await vscode.commands.executeCommand('setContext', 'voiceScribe.recording', true);
 
     } catch (error) {
         isRecording = false;
         updateStatusBar();
-        await vscode.commands.executeCommand('setContext', 'elevenlabsVoice.recording', false);
+        await vscode.commands.executeCommand('setContext', 'voiceScribe.recording', false);
         vscode.window.showErrorMessage(`Failed to start recording: ${error}`);
     }
 }
@@ -188,7 +188,7 @@ async function stopRecording() {
         liveRange = null;
 
         // Clear context for keybinding
-        await vscode.commands.executeCommand('setContext', 'elevenlabsVoice.recording', false);
+        await vscode.commands.executeCommand('setContext', 'voiceScribe.recording', false);
 
         // Note: we do NOT re-insert finalText here.
         // The onFinal callback already inserted each committed segment in real-time.
@@ -197,7 +197,7 @@ async function stopRecording() {
     } catch (error) {
         isRecording = false;
         updateStatusBar();
-        await vscode.commands.executeCommand('setContext', 'elevenlabsVoice.recording', false);
+        await vscode.commands.executeCommand('setContext', 'voiceScribe.recording', false);
         vscode.window.showErrorMessage(`Failed to stop recording: ${error}`);
     }
 }
@@ -286,10 +286,10 @@ async function configureApiKey() {
     });
 
     if (apiKey) {
-        const config = vscode.workspace.getConfiguration('elevenlabsVoice');
+        const config = vscode.workspace.getConfiguration('voiceScribe');
         await config.update('apiKey', apiKey, vscode.ConfigurationTarget.Global);
         initializeServices();
-        vscode.window.showInformationMessage('✅ ElevenLabs API key saved');
+        vscode.window.showInformationMessage('✅ API key saved');
     }
 }
 
@@ -297,11 +297,11 @@ function updateStatusBar() {
     if (isRecording) {
         statusBarItem.text = '$(mic) Recording...';
         statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
-        statusBarItem.command = 'elevenlabsVoice.stopRecording';
+        statusBarItem.command = 'voiceScribe.stopRecording';
     } else {
-        statusBarItem.text = '$(mic) Voice Input';
+        statusBarItem.text = '$(mic) Voice Scribe';
         statusBarItem.backgroundColor = undefined;
-        statusBarItem.command = 'elevenlabsVoice.startRecording';
+        statusBarItem.command = 'voiceScribe.startRecording';
     }
     statusBarItem.show();
 }
@@ -317,5 +317,5 @@ export function deactivate() {
         statusBarItem.dispose();
     }
     // Clear recording context
-    vscode.commands.executeCommand('setContext', 'elevenlabsVoice.recording', false);
+    vscode.commands.executeCommand('setContext', 'voiceScribe.recording', false);
 }

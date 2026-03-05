@@ -1,64 +1,63 @@
 {
-  "name": "vscode-elevenlabs-voice",
-  "displayName": "ElevenLabs Voice for VS Code",
-  "description": "High-quality voice input using ElevenLabs real-time transcription",
-  "version": "0.0.1",
-  "publisher": "openclaw-community",
+  "name": "vscode-voice-scribe",
+  "displayName": "Voice Scribe",
+  "description": "High-quality real-time voice-to-text for VS Code with live rewriting",
+  "version": "0.1.0",
+  "publisher": "1vecera",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
     "Other",
-    "Machine Learning",
-    "Programming Languages"
+    "Machine Learning"
   ],
   "keywords": [
     "voice",
     "dictation",
     "speech-to-text",
-    "elevenlabs",
+    "transcription",
     "ai",
-    "copilot"
+    "scribe"
   ],
   "activationEvents": [
-    "onCommand:elevenlabsVoice.startRecording",
-    "onCommand:elevenlabsVoice.configureApiKey"
+    "onCommand:voiceScribe.startRecording",
+    "onCommand:voiceScribe.configureApiKey"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "elevenlabsVoice.startRecording",
-        "title": "ElevenLabs Voice: Start Recording"
+        "command": "voiceScribe.startRecording",
+        "title": "Voice Scribe: Start Recording"
       },
       {
-        "command": "elevenlabsVoice.stopRecording",
-        "title": "ElevenLabs Voice: Stop Recording"
+        "command": "voiceScribe.stopRecording",
+        "title": "Voice Scribe: Stop Recording"
       },
       {
-        "command": "elevenlabsVoice.configureApiKey",
-        "title": "ElevenLabs Voice: Configure API Key"
+        "command": "voiceScribe.configureApiKey",
+        "title": "Voice Scribe: Configure API Key"
       }
     ],
     "configuration": {
-      "title": "ElevenLabs Voice",
+      "title": "Voice Scribe",
       "properties": {
-        "elevenlabsVoice.apiKey": {
+        "voiceScribe.apiKey": {
           "type": "string",
           "default": "",
-          "description": "Your ElevenLabs API key"
+          "description": "Your ElevenLabs API key for speech-to-text"
         },
-        "elevenlabsVoice.enhancement.enabled": {
+        "voiceScribe.enhancement.enabled": {
           "type": "boolean",
           "default": false,
           "description": "Enable AI-powered transcription enhancement"
         },
-        "elevenlabsVoice.enhancement.model": {
+        "voiceScribe.enhancement.model": {
           "type": "string",
           "default": "claude-3-5-sonnet-20241022",
           "description": "Model to use for enhancement (claude-3-5-sonnet-20241022, gpt-4-turbo)"
         },
-        "elevenlabsVoice.enhancement.provider": {
+        "voiceScribe.enhancement.provider": {
           "type": "string",
           "default": "anthropic",
           "enum": [
@@ -71,16 +70,16 @@
     },
     "keybindings": [
       {
-        "command": "elevenlabsVoice.startRecording",
+        "command": "voiceScribe.startRecording",
         "key": "ctrl+alt+v",
         "mac": "cmd+alt+v",
         "when": "editorTextFocus"
       },
       {
-        "command": "elevenlabsVoice.stopRecording",
+        "command": "voiceScribe.stopRecording",
         "key": "ctrl+alt+v",
         "mac": "cmd+alt+v",
-        "when": "elevenlabsVoice.recording"
+        "when": "voiceScribe.recording"
       }
     ]
   },
@@ -107,7 +106,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/stevenoliver7/vscode-elevenlabs-voice.git"
+    "url": "https://github.com/1vecera/vscode-voice-scribe.git"
   },
   "license": "MIT"
 }

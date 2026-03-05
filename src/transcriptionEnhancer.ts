@@ -53,7 +53,7 @@ Enhanced version:`;
     }
 
     private async enhanceWithAnthropic(prompt: string): Promise<string> {
-        const config = vscode.workspace.getConfiguration('elevenlabsVoice');
+        const config = vscode.workspace.getConfiguration('voiceScribe');
         const apiKey = process.env.ANTHROPIC_API_KEY;
 
         if (!apiKey) {

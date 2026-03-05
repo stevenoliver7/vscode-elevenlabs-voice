@@ -47,6 +47,25 @@
           "default": "",
           "description": "Your ElevenLabs API key for speech-to-text"
         },
+        "voiceScribe.language": {
+          "type": "string",
+          "default": "en",
+          "enum": [
+            "en", "zh", "es", "hi", "pt", "ru", "ja", "de",
+            "fr", "it", "ko", "nl", "pl", "sv", "tr", "cs",
+            "da", "fi", "el", "hu", "no", "ro", "sk", "uk",
+            "bg", "hr", "ca", "ta", "ar", "ms", "id", "th",
+            "vi", "tl"
+          ],
+          "enumDescriptions": [
+            "English", "Chinese", "Spanish", "Hindi", "Portuguese", "Russian", "Japanese", "German",
+            "French", "Italian", "Korean", "Dutch", "Polish", "Swedish", "Turkish", "Czech",
+            "Danish", "Finnish", "Greek", "Hungarian", "Norwegian", "Romanian", "Slovak", "Ukrainian",
+            "Bulgarian", "Croatian", "Catalan", "Tamil", "Arabic", "Malay", "Indonesian", "Thai",
+            "Vietnamese", "Filipino"
+          ],
+          "description": "Language for speech recognition (ISO 639-1 code)"
+        },
         "voiceScribe.enhancement.enabled": {
           "type": "boolean",
           "default": false,

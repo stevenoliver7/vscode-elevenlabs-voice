@@ -49,10 +49,14 @@ export class ElevenLabsService {
         return new Promise((resolve, reject) => {
             try {
                 // ── Build URL with REQUIRED query params ────────────────
+                const config = vscode.workspace.getConfiguration('voiceScribe');
+                const language = config.get<string>('language') || 'en';
+                log(`Language: ${language}`);
+
                 const params = new URLSearchParams({
                     model_id: 'scribe_v2_realtime',   // REQUIRED
                     audio_format: 'pcm_16000',        // 16 kHz 16-bit LE mono
-                    language_code: 'en',
+                    language_code: language,
                     commit_strategy: 'vad',           // auto-commit on silence
                     // ── Aggressive rewrite tuning ────────────────────
                     vad_silence_threshold_secs: '0.8', // commit faster (default 1.5)

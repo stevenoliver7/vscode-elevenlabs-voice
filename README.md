@@ -79,9 +79,4 @@ npm run watch   # compile on save
 ## License
 
 MIT
-
-
-¨Working right now or not like II really want to make sure that I will not get like a huge value. Error. I think this works now. It continues to work fairly well. But it's yeah, it should be so much better than the traditional, traditional like, voice writing. So this is pretty hard, pretty awesome. Yeah, the setup should be pretty good. I think this is pretty nested right now. Yeah, I don't know what else to say. Like, is this consuming like a good amount of my credit? Like, I don't know. Let's keep this running and see how I'm doing. So I should be. You see you witch. Okay. OK What is this? This is pretty good. My God this is incredible. Transcriptive. Tossin Omina has made a sick. 
-
-To.
-
+work fairly well. 

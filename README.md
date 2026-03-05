@@ -1,180 +1,81 @@
-# VS Code ElevenLabs Voice Extension 🎤
+# Voice Scribe
 
-High-quality voice input for VS Code using ElevenLabs real-time transcription API.
+Real-time voice-to-text for VS Code with live rewriting. Speak and watch your words appear — and get corrected — as you talk.
 
-## ⚠️ Requirements
+Uses the ElevenLabs Scribe v2 realtime WebSocket API for high-quality speech-to-text, with aggressive partial-transcript rewriting so earlier words improve as more context arrives.
 
-**This extension requires ffmpeg to be installed:**
+## Features
+
+- **Live rewriting** — partial transcripts replace the "live zone" in your editor as the model refines its hypothesis
+- **VAD auto-commit** — voice activity detection automatically commits text when you pause
+- **Office-friendly** — works well in quiet environments without loud articulation
+- **Optional AI enhancement** — pass committed transcripts through Claude or GPT-4 for grammar/formatting cleanup
+- **Cross-platform** — macOS, Linux, and Windows (via ffmpeg)
+
+## Requirements
+
+- **VS Code** 1.85+
+- **ffmpeg** installed and on PATH
+- **ElevenLabs API key** with Scribe v2 access ([elevenlabs.io](https://elevenlabs.io))
 
 ```bash
 # macOS
 brew install ffmpeg
 
 # Linux (Debian/Ubuntu)
-sudo apt update && sudo apt install ffmpeg
+sudo apt install ffmpeg
 
-# Linux (RHEL/Fedora)
-sudo dnf install ffmpeg
-
-# Windows (using Chocolatey)
+# Windows
 choco install ffmpeg
-
-# Windows (using Scoop)
-scoop install ffmpeg
 ```
-
-Verify installation: `ffmpeg -version`
-
----
-
-## ✨ Status: Ready for Testing!
-
-**Current Progress:** 70% complete
-- ✅ Core features built
-- ✅ Automated tests passing
-- ⏳ Manual testing in VS Code needed
-
-**Quick Start:** See [QUICK_START.md](QUICK_START.md) to test now!
-
----
-
-## Why This Exists
-
-The built-in VS Code voice dictation has quality issues, especially in quiet office environments. ElevenLabs' real-time v2 API provides significantly better transcription quality, making it perfect for professional use.
-
-## Features
-
-- 🎯 **High-quality transcription** using ElevenLabs real-time v2
-- 🔇 **Office-friendly** - works well without loud articulation
-- 🤖 **GitHub Copilot integration** - seamlessly works with your AI coding workflow
-- 🧠 **Smart enhancement** - pass transcriptions to Claude/GPT-4 for context-aware cleanup
-- ⚡ **Real-time** - see your words appear as you speak
-
-## Use Case
-
-**Your workflow:**
-1. Dictate tasks/ideas while coding
-2. Pass to GitHub Copilot (Claude Opus 4.6)
-3. AI cleans up and implements
-4. Review and execute
 
 ## Installation
 
-### Prerequisites
-- ✅ VS Code 1.85+
-- ✅ ElevenLabs API key ([get one here](https://elevenlabs.io))
-- ✅ **ffmpeg installed** (see Requirements above)
-
-### Install from Source
 ```bash
-git clone https://github.com/stevenoliver7/vscode-elevenlabs-voice.git
-cd vscode-elevenlabs-voice
+git clone https://github.com/1vecera/vscode-voice-scribe.git
+cd vscode-voice-scribe
 npm install
 npm run compile
-npm install -g @vscode/vsce
-vsce package
-code --install-extension vscode-elevenlabs-voice-0.0.1.vsix
+npx @vscode/vsce package
+code --install-extension vscode-voice-scribe-0.1.0.vsix
 ```
 
-For detailed installation instructions, see [INSTALLATION.md](INSTALLATION.md)
-
----
+Or press **F5** in VS Code to launch the Extension Development Host.
 
 ## Usage
 
-### Basic Voice Input
-1. Open Command Palette (`Cmd+Shift+P` or `Ctrl+Shift+P`)
-2. Run "ElevenLabs Voice: Configure API Key"
-3. Enter your ElevenLabs API key
-4. Open any text file
-5. Press `Cmd+Alt+V` (macOS) or `Ctrl+Alt+V` (Windows/Linux)
-6. Speak your text
-7. Press `Cmd+Alt+V` again to stop
-8. Text appears in active editor
+1. **Configure API key**: `Cmd+Shift+P` → "Voice Scribe: Configure API Key"
+2. **Start recording**: `Cmd+Alt+V` (macOS) / `Ctrl+Alt+V`
+3. **Speak** — text appears and rewrites in real time
+4. **Stop recording**: press the same shortcut again
 
-### With GitHub Copilot
-1. Open Copilot chat
-2. Start voice recording
-3. Dictate your task/idea
-4. Copilot receives cleaned-up text
-
-### Smart Enhancement
-1. Record voice input
-2. Extension automatically passes to configured AI model
-3. Model cleans up using project context
-4. Enhanced text inserted into editor
+The status bar shows a microphone icon; it turns red while recording.
 
 ## Configuration
 
-```json
-{
-  "elevenlabsVoice.apiKey": "your-api-key-here",
-  "elevenlabsVoice.enhancement.enabled": true,
-  "elevenlabsVoice.enhancement.model": "claude-3-5-sonnet-20241022",
-  "elevenlabsVoice.enhancement.provider": "anthropic"
-}
-```
+| Setting | Default | Description |
+|---|---|---|
+| `voiceScribe.apiKey` | `""` | Your ElevenLabs API key |
+| `voiceScribe.enhancement.enabled` | `false` | Run committed text through an AI model |
+| `voiceScribe.enhancement.model` | `claude-3-5-sonnet-20241022` | Model for enhancement |
+| `voiceScribe.enhancement.provider` | `anthropic` | `anthropic` or `openai` |
+
+## How it works
+
+1. **ffmpeg** captures microphone audio as 16 kHz 16-bit PCM mono
+2. 100 ms chunks are base64-encoded and sent over a WebSocket to the ElevenLabs Scribe v2 realtime API
+3. `partial_transcript` messages replace the live zone in the editor (the model rewrites earlier words as context grows)
+4. `committed_transcript` messages lock the text in place, clear the live decoration, and advance the cursor
+5. An edit queue serializes all editor mutations to prevent race conditions
 
 ## Development
 
-### Setup
 ```bash
-git clone https://github.com/stevenoliver7/vscode-elevenlabs-voice.git
-cd vscode-elevenlabs-voice
 npm install
+npm run watch   # compile on save
+# Press F5 to launch Extension Development Host
 ```
-
-### Debug
-1. Open in VS Code
-2. Press F5 to launch Extension Development Host
-3. Test the extension
-
-### Build
-```bash
-npm run compile
-vsce package
-```
-
-## Roadmap
-
-- [x] Basic extension structure
-- [ ] ElevenLabs WebSocket integration
-- [ ] Real-time audio capture
-- [ ] VS Code UI integration
-- [ ] GitHub Copilot integration
-- [ ] Smart enhancement with Claude/GPT-4
-- [ ] Context-aware cleanup
-- [ ] Custom voice commands
-- [ ] Multi-language support
-
-## Technical Details
-
-### Architecture
-- **Extension Host**: VS Code extension API
-- **Audio Capture**: Web Audio API / Node.js
-- **Transcription**: ElevenLabs WebSocket API
-- **Enhancement**: OpenAI/Anthropic API
-
-### API Integration
-- ElevenLabs Real-time v2 (WebSocket)
-- GitHub Copilot Chat API
-- OpenAI/Anthropic for enhancement
-
-## Contributing
-
-Contributions welcome! This is an open-source project aimed at improving developer workflows.
 
 ## License
 
 MIT
-
-## Credits
-
-Built with ❤️ using:
-- [ElevenLabs](https://elevenlabs.io) - Real-time transcription
-- [VS Code Extension API](https://code.visualstudio.com/api)
-- [GitHub Copilot](https://github.com/features/copilot)
-
----
-
-**Created for developers who think faster than they type.** 🚀
